@@ -7,6 +7,9 @@ import Restaurants from './pages/Restaurants.jsx'
 import Cart from './pages/Cart.jsx'
 import Auth from './pages/Auth.jsx'
 import Partner from './pages/Partner.jsx'
+import PartnerDashboard from './pages/PartnerDashboard.jsx'
+import VideoFeed from './pages/VideoFeed.jsx'
+import Profile from './pages/Profile.jsx'
 import NotFound from './pages/NotFound.jsx'
 
 function App() {
@@ -19,11 +22,14 @@ function App() {
         <Route path="/cart" element={<Cart />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/partner" element={<Partner />} />
+        <Route path="/partner-dashboard" element={<PartnerDashboard />} />
+        <Route path="/videos" element={<VideoFeed />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="/home" element={<Navigate to="/" replace />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
- )
+  )
 }
 
 export default App
