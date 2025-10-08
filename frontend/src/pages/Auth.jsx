@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import GlassCard from '../ui/GlassCard.jsx'
 import { motion } from 'framer-motion'
-import { Mail, Lock, User, Phone, MapPin, Eye, EyeOff, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Mail, Lock, User, Phone, MapPin, Eye, EyeOff, ToggleLeft, ToggleRight, LogOut } from 'lucide-react'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
+import { authEvents } from '../utils/authEvents'
 
 function Auth() {
   const [isLogin, setIsLogin] = useState(false)
@@ -12,40 +13,58 @@ function Auth() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [user, setUser] = useState(null)
+  const [userType, setUserType] = useState(null)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    // Check if user is already logged in
+    const userData = localStorage.getItem('user')
+    const userTypeData = localStorage.getItem('userType')
+
+    if (userData && userTypeData) {
+      setUser(JSON.parse(userData))
+      setUserType(userTypeData)
+    }
+  }, [])
 
   const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
     setSuccess('')
-    
+
     const formData = new FormData(e.target)
     const data = Object.fromEntries(formData)
-    
+
     try {
       const endpoint = isPartner ? "foodPartner/login" : "user/login"
       const response = await axios.post(`http://localhost:3000/${endpoint}`, {
         email: data.email,
         password: data.password
       })
-      
+
       console.log('Login successful:', response.data)
       setSuccess('Login successful!')
-      
+
       // Store user data if available
       const userData = response.data.user || response.data.foodPartner
       if (userData) {
         localStorage.setItem('user', JSON.stringify(userData))
         localStorage.setItem('userType', isPartner ? 'partner' : 'user')
         localStorage.setItem('token', response.data.token || 'logged-in')
+        setUser(userData)
+        setUserType(isPartner ? 'partner' : 'user')
+
+        // Emit auth event to update all components
+        authEvents.emit({ user: userData, userType: isPartner ? 'partner' : 'user' })
       }
-      
+
       // Navigate after a short delay
       setTimeout(() => {
         navigate('/')
       }, 1000)
-      
+
     } catch (error) {
       console.error('Login failed:', error.response?.data || error.message)
       setError(error.response?.data?.message || error.message || 'Login failed. Please try again.')
@@ -59,10 +78,10 @@ function Auth() {
     setLoading(true)
     setError('')
     setSuccess('')
-    
+
     const formData = new FormData(e.target)
     const data = Object.fromEntries(formData)
-    
+
     try {
       const endpoint = isPartner ? "foodPartner/register" : "user/register"
       const response = await axios.post(`http://localhost:3000/${endpoint}`, {
@@ -75,17 +94,104 @@ function Auth() {
           address: data.address
         })
       })
-      
+
       console.log('Registration successful:', response.data)
       setSuccess('Registration successful! Please login.')
       setIsLogin(true)
-      
+
     } catch (error) {
       console.error('Registration failed:', error.response?.data || error.message)
       setError(error.response?.data?.message || error.message || 'Registration failed. Please try again.')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('user')
+    localStorage.removeItem('userType')
+    localStorage.removeItem('token')
+    setUser(null)
+    setUserType(null)
+    setError('')
+    setSuccess('')
+
+    // Emit auth event to update all components
+    authEvents.emit({ user: null, userType: null })
+  }
+
+  // If user is logged in, show profile instead of auth forms
+  if (user && userType) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-8"
+        >
+          <h1 className="text-4xl font-bold mb-2">Welcome back!</h1>
+          <p className="text-white/70">You are already logged in</p>
+        </motion.div>
+
+        <GlassCard className="p-8">
+          <div className="text-center">
+            <div className="w-24 h-24 rounded-full bg-white/10 border-4 border-white/20 mx-auto mb-6 overflow-hidden">
+              <img
+                src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300&h=300&fit=crop&crop=face"
+                alt="Profile"
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            <h2 className="text-2xl font-bold mb-2">{user.name}</h2>
+            <p className="text-white/70 mb-4">{user.email}</p>
+
+            <div className="flex items-center justify-center gap-2 mb-6">
+              <span className={`px-3 py-1 rounded-full text-sm ${userType === 'partner'
+                ? 'bg-purple-500/20 text-purple-400'
+                : 'bg-blue-500/20 text-blue-400'
+                }`}>
+                {userType === 'partner' ? 'Food Partner' : 'Customer'}
+              </span>
+            </div>
+
+            {userType === 'partner' && user.partnerToken && (
+              <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/10">
+                <p className="text-white/70 text-sm mb-2">Partner Token:</p>
+                <p className="text-white font-mono text-sm break-all">{user.partnerToken}</p>
+              </div>
+            )}
+
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={() => navigate('/profile')}
+                className="px-6 py-3 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition-all"
+              >
+                View Profile
+              </button>
+
+              {userType === 'partner' && (
+                <button
+                  onClick={() => navigate('/partner-dashboard')}
+                  className="px-6 py-3 rounded-xl bg-purple-500/20 border border-purple-500/30 hover:bg-purple-500/30 transition-all"
+                >
+                  Partner Dashboard
+                </button>
+              )}
+
+              <button
+                onClick={handleLogout}
+                className="px-6 py-3 rounded-xl bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 transition-all flex items-center gap-2"
+              >
+                <LogOut size={18} />
+                Logout
+              </button>
+            </div>
+          </div>
+        </GlassCard>
+      </div>
+    )
   }
 
   return (
@@ -106,18 +212,16 @@ function Auth() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsPartner(false)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
-                !isPartner ? 'bg-white/20 text-white' : 'text-white/70 hover:text-white'
-              }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${!isPartner ? 'bg-white/20 text-white' : 'text-white/70 hover:text-white'
+                }`}
             >
               <User size={18} />
               <span>User</span>
             </button>
             <button
               onClick={() => setIsPartner(true)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
-                isPartner ? 'bg-white/20 text-white' : 'text-white/70 hover:text-white'
-              }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${isPartner ? 'bg-white/20 text-white' : 'text-white/70 hover:text-white'
+                }`}
             >
               <User size={18} />
               <span>Food Partner</span>
@@ -155,7 +259,7 @@ function Auth() {
             </h2>
             <p className="text-white/70 text-sm">Welcome back!</p>
           </div>
-          
+
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm text-white/80">Email</label>
@@ -212,7 +316,7 @@ function Auth() {
               {isPartner ? 'Join as a food partner' : 'Create your account'}
             </p>
           </div>
-          
+
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm text-white/80">

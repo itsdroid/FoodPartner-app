@@ -10,7 +10,7 @@ function VideoFeed() {
   const [savedVideos, setSavedVideos] = useState(new Set())
   const [comments, setComments] = useState({})
   const [isPlaying, setIsPlaying] = useState(true)
-  const [isMuted, setIsMuted] = useState(false)
+  const [isMuted, setIsMuted] = useState(true)
   const [showComments, setShowComments] = useState(false)
   const [newComment, setNewComment] = useState('')
   const [videos, setVideos] = useState([])
@@ -24,112 +24,165 @@ function VideoFeed() {
 
   const fetchVideos = async () => {
     try {
-      // This would be your actual API endpoint
-      const response = await axios.get('http://localhost:3000/food/videos')
-      setVideos(response.data)
+      // Fetch reels from the new API endpoint
+      const response = await axios.get('http://localhost:3000/food/reels')
+      const data = response.data
+      // Support both shapes: { reels: [...] } and [...]
+      const reels = Array.isArray(data) ? data : (data.reels || data.videos || [])
+      setVideos(reels)
     } catch (error) {
-      console.error('Error fetching videos:', error)
-      // Fallback to mock data if API fails
-      setVideos([
-        {
-          id: 1,
-          title: "Amazing Pizza Making",
-          restaurant: "Tony's Pizza",
-          likes: 1234,
-          comments: 89,
-          videoUrl: "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4",
-          thumbnail: "https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=600&fit=crop",
-          description: "Watch our chef create the perfect Margherita pizza from scratch",
-          foodItem: {
-            name: "Pizza Margherita",
-            price: 12.99,
-            ingredients: "Fresh mozzarella, tomato sauce, basil"
-          }
-        },
-        {
-          id: 2,
-          title: "Sushi Master at Work",
-          restaurant: "Sakura Sushi",
-          likes: 2567,
-          comments: 156,
-          videoUrl: "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_2mb.mp4",
-          thumbnail: "https://images.unsplash.com/photo-1579584425555-c3ce17fd4351?w=400&h=600&fit=crop",
-          description: "Experience the art of sushi making with our master chef",
-          foodItem: {
-            name: "Salmon Sushi Platter",
-            price: 18.99,
-            ingredients: "Fresh salmon, rice, seaweed, wasabi"
-          }
-        },
-        {
-          id: 3,
-          title: "Burger Assembly",
-          restaurant: "Burger Palace",
-          likes: 3456,
-          comments: 234,
-          videoUrl: "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4",
-          thumbnail: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=600&fit=crop",
-          description: "See how we build our signature deluxe burger",
-          foodItem: {
-            name: "Deluxe Burger",
-            price: 15.99,
-            ingredients: "Beef patty, cheese, lettuce, tomato, special sauce"
-          }
-        }
-      ])
+      console.error('Error fetching reels:', error)
+      // If no reels exist, show empty state
+      setVideos([])
     } finally {
       setLoading(false)
     }
   }
 
-  const handleLike = (videoId) => {
-    setLikedVideos(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(videoId)) {
-        newSet.delete(videoId)
-      } else {
-        newSet.add(videoId)
+  const handleLike = async (videoId) => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        // Redirect to login if not authenticated
+        window.location.href = '/auth'
+        return
       }
-      return newSet
-    })
+
+      const response = await axios.post(`http://localhost:3000/user/like/${videoId}`, {}, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      // Update local state
+      setLikedVideos(prev => {
+        const newSet = new Set(prev)
+        if (response.data.isLiked) {
+          newSet.add(videoId)
+        } else {
+          newSet.delete(videoId)
+        }
+        return newSet
+      })
+
+      // Update video likes count
+      setVideos(prev => prev.map(video =>
+        video.id === videoId
+          ? { ...video, likes: response.data.totalLikes }
+          : video
+      ))
+    } catch (error) {
+      console.error('Error liking video:', error)
+    }
   }
 
-  const handleSave = (videoId) => {
-    setSavedVideos(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(videoId)) {
-        newSet.delete(videoId)
-      } else {
-        newSet.add(videoId)
+  const handleSave = async (videoId) => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        // Redirect to login if not authenticated
+        window.location.href = '/auth'
+        return
       }
-      return newSet
-    })
+
+      const response = await axios.post(`http://localhost:3000/user/save/${videoId}`, {}, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      // Update local state
+      setSavedVideos(prev => {
+        const newSet = new Set(prev)
+        if (response.data.isSaved) {
+          newSet.add(videoId)
+        } else {
+          newSet.delete(videoId)
+        }
+        return newSet
+      })
+    } catch (error) {
+      console.error('Error saving video:', error)
+    }
   }
 
   const handleComment = async (videoId) => {
     if (newComment.trim()) {
-      const comment = {
-        id: Date.now(),
-        text: newComment,
-        user: 'You',
-        timestamp: new Date().toLocaleTimeString()
-      }
-      
-      setComments(prev => ({
-        ...prev,
-        [videoId]: [...(prev[videoId] || []), comment]
-      }))
-      
-      setNewComment('')
-      
-      // Here you would send the comment to your backend
       try {
-        await axios.post(`http://localhost:3000/food/videos/${videoId}/comments`, {
-          text: comment.text
+        const token = localStorage.getItem('token')
+        if (!token) {
+          // Redirect to login if not authenticated
+          window.location.href = '/auth'
+          return
+        }
+
+        const response = await axios.post(`http://localhost:3000/user/comment/${videoId}`, {
+          text: newComment
+        }, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         })
+
+        // Update local comments
+        setComments(prev => ({
+          ...prev,
+          [videoId]: [...(prev[videoId] || []), response.data.comment]
+        }))
+
+        // Update video comments count
+        setVideos(prev => prev.map(video =>
+          video.id === videoId
+            ? { ...video, comments: response.data.totalComments }
+            : video
+        ))
+
+        setNewComment('')
       } catch (error) {
         console.error('Error posting comment:', error)
       }
+    }
+  }
+
+  const fetchComments = async (videoId) => {
+    try {
+      const response = await axios.get(`http://localhost:3000/user/comments/${videoId}`)
+      setComments(prev => ({
+        ...prev,
+        [videoId]: response.data.comments || []
+      }))
+    } catch (error) {
+      console.error('Error fetching comments:', error)
+    }
+  }
+
+  const handleShowComments = (videoId) => {
+    setShowComments(!showComments)
+    if (!showComments && !comments[videoId]) {
+      fetchComments(videoId)
+    }
+  }
+
+  const handleShare = async (videoId) => {
+    try {
+      // Increment share count on backend
+      await axios.post(`http://localhost:3000/user/share/${videoId}`)
+
+      // Update local share count
+      setVideos(prev => prev.map(video =>
+        video.id === videoId
+          ? { ...video, shares: (video.shares || 0) + 1 }
+          : video
+      ))
+
+      // Copy link to clipboard
+      const videoUrl = `${window.location.origin}/videos/${videoId}`
+      await navigator.clipboard.writeText(videoUrl)
+
+      // You could show a toast notification here
+      console.log('Link copied to clipboard!')
+    } catch (error) {
+      console.error('Error sharing video:', error)
     }
   }
 
@@ -139,6 +192,34 @@ function VideoFeed() {
     } else if (direction === 'down' && currentVideo < videos.length - 1) {
       setCurrentVideo(currentVideo + 1)
     }
+  }
+
+  // Wheel scroll to navigate like reels
+  const wheelTimeout = useRef(null)
+  const onWheel = (e) => {
+    // Debounce to prevent skipping multiple videos per gesture
+    if (wheelTimeout.current) return
+    wheelTimeout.current = setTimeout(() => {
+      wheelTimeout.current = null
+    }, 350)
+    if (e.deltaY > 0) handleScroll('down')
+    else if (e.deltaY < 0) handleScroll('up')
+  }
+
+  // Touch swipe to navigate on mobile
+  const touchStartY = useRef(null)
+  const onTouchStart = (e) => {
+    touchStartY.current = e.touches[0].clientY
+  }
+  const onTouchEnd = (e) => {
+    if (touchStartY.current === null) return
+    const endY = e.changedTouches[0].clientY
+    const diff = touchStartY.current - endY
+    if (Math.abs(diff) > 40) {
+      if (diff > 0) handleScroll('down')
+      else handleScroll('up')
+    }
+    touchStartY.current = null
   }
 
   const togglePlayPause = () => {
@@ -158,6 +239,30 @@ function VideoFeed() {
       setIsMuted(!isMuted)
     }
   }
+
+  // Ensure video updates correctly when switching items
+  useEffect(() => {
+    if (!videoRef.current) return
+    try {
+      // Reset the media element source and playback based on isPlaying
+      videoRef.current.muted = isMuted
+      const playIfNeeded = async () => {
+        if (isPlaying) {
+          try { await videoRef.current.play() } catch { }
+        } else {
+          videoRef.current.pause()
+        }
+      }
+      playIfNeeded()
+    } catch { }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentVideo])
+
+  // Keep mute state in sync if user toggles
+  useEffect(() => {
+    if (!videoRef.current) return
+    videoRef.current.muted = isMuted
+  }, [isMuted])
 
   if (loading) {
     return (
@@ -179,28 +284,41 @@ function VideoFeed() {
   }
 
   return (
-    <div className="h-screen overflow-hidden bg-black">
+    <div className="h-screen overflow-hidden bg-black" onWheel={onWheel} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       <div className="relative h-full">
         {/* Video Container */}
         <div className="relative h-full">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentVideo}
-              initial={{ opacity: 0, scale: 1.1 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.3 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18, ease: 'linear' }}
               className="relative h-full w-full"
             >
-              {/* Video Background */}
-              <div 
-                className="absolute inset-0 bg-cover bg-center"
-                style={{ backgroundImage: `url(${videos[currentVideo].thumbnail})` }}
+              {/* Video Element */}
+              <video
+                ref={videoRef}
+                key={videos[currentVideo].id}
+                src={videos[currentVideo].videoUrl}
+                className="absolute inset-0 w-full h-full object-cover"
+                autoPlay
+                muted={isMuted}
+                playsInline
+                loop
+                onLoadedMetadata={() => {
+                  try {
+                    if (isPlaying && videoRef.current) {
+                      videoRef.current.play().catch(() => { })
+                    }
+                  } catch { }
+                }}
               />
-              
+
               {/* Video Overlay */}
               <div className="absolute inset-0 bg-black/30" />
-              
+
               {/* Video Controls */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <button
@@ -216,7 +334,26 @@ function VideoFeed() {
                 <h3 className="text-xl font-semibold mb-2">{videos[currentVideo].title}</h3>
                 <p className="text-white/80 mb-2">{videos[currentVideo].restaurant}</p>
                 <p className="text-white/70 text-sm mb-4">{videos[currentVideo].description}</p>
-                
+
+                {/* Hashtags */}
+                {videos[currentVideo].hashtags && videos[currentVideo].hashtags.length > 0 && (
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    {videos[currentVideo].hashtags.map((tag, index) => (
+                      <span key={index} className="px-2 py-1 rounded-full text-xs bg-white/20 text-white">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Location */}
+                {videos[currentVideo].location && (
+                  <div className="mb-4 flex items-center gap-2 text-white/80 text-sm">
+                    <span>📍</span>
+                    <span>{videos[currentVideo].location}</span>
+                  </div>
+                )}
+
                 {/* Food Item Info */}
                 {videos[currentVideo].foodItem && (
                   <div className="mb-4 p-3 rounded-xl bg-white/10 backdrop-blur-sm">
@@ -234,48 +371,49 @@ function VideoFeed() {
                     </div>
                   </div>
                 )}
-                
+
                 {/* Action Buttons */}
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => handleLike(videos[currentVideo].id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
-                      likedVideos.has(videos[currentVideo].id) 
-                        ? 'bg-red-500 text-white' 
-                        : 'bg-white/20 text-white hover:bg-white/30'
-                    }`}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${likedVideos.has(videos[currentVideo].id)
+                      ? 'bg-red-500 text-white'
+                      : 'bg-white/20 text-white hover:bg-white/30'
+                      }`}
                   >
-                    <Heart 
-                      size={20} 
-                      fill={likedVideos.has(videos[currentVideo].id) ? 'currentColor' : 'none'} 
+                    <Heart
+                      size={20}
+                      fill={likedVideos.has(videos[currentVideo].id) ? 'currentColor' : 'none'}
                     />
                     {videos[currentVideo].likes + (likedVideos.has(videos[currentVideo].id) ? 1 : 0)}
                   </button>
-                  
-                  <button 
-                    onClick={() => setShowComments(true)}
+
+                  <button
+                    onClick={() => handleShowComments(videos[currentVideo].id)}
                     className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition-all"
                   >
                     <MessageCircle size={20} />
                     {videos[currentVideo].comments + (comments[videos[currentVideo].id]?.length || 0)}
                   </button>
-                  
-                  <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition-all">
+
+                  <button
+                    onClick={() => handleShare(videos[currentVideo].id)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition-all"
+                  >
                     <Share size={20} />
                     Share
                   </button>
-                  
+
                   <button
                     onClick={() => handleSave(videos[currentVideo].id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
-                      savedVideos.has(videos[currentVideo].id) 
-                        ? 'bg-yellow-500 text-white' 
-                        : 'bg-white/20 text-white hover:bg-white/30'
-                    }`}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${savedVideos.has(videos[currentVideo].id)
+                      ? 'bg-yellow-500 text-white'
+                      : 'bg-white/20 text-white hover:bg-white/30'
+                      }`}
                   >
-                    <Bookmark 
-                      size={20} 
-                      fill={savedVideos.has(videos[currentVideo].id) ? 'currentColor' : 'none'} 
+                    <Bookmark
+                      size={20}
+                      fill={savedVideos.has(videos[currentVideo].id) ? 'currentColor' : 'none'}
                     />
                   </button>
                 </div>
@@ -294,18 +432,7 @@ function VideoFeed() {
           </AnimatePresence>
         </div>
 
-        {/* Navigation */}
-        <div className="absolute left-4 top-1/2 transform -translate-y-1/2 flex flex-col gap-2">
-          {videos.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => setCurrentVideo(index)}
-              className={`w-2 h-8 rounded-full transition-all ${
-                index === currentVideo ? 'bg-white' : 'bg-white/30'
-              }`}
-            />
-          ))}
-        </div>
+        {/* Navigation indicator removed as per request */}
 
         {/* Scroll Instructions */}
         <div className="absolute bottom-4 right-4 text-white/60 text-sm">
@@ -357,7 +484,7 @@ function VideoFeed() {
                     </div>
                   </div>
                 ))}
-                
+
                 {(!comments[videos[currentVideo].id] || comments[videos[currentVideo].id].length === 0) && (
                   <div className="text-center text-white/60 py-8">
                     <MessageCircle size={32} className="mx-auto mb-2 opacity-50" />
