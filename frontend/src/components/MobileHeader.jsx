@@ -1,11 +1,62 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Menu, X, Search, Bell, User, Settings, LogOut } from 'lucide-react'
 import GlassCard from '../ui/GlassCard.jsx'
+import { useNavigate } from 'react-router-dom'
+import { authEvents } from '../utils/authEvents'
 
 function MobileHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [user, setUser] = useState(null)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user')
+    if (userData) {
+      setUser(JSON.parse(userData))
+    }
+  }, [])
+
+  // Listen for auth events and storage changes
+  useEffect(() => {
+    const handleAuthChange = (data) => {
+      setUser(data.user)
+    }
+
+    const handleStorageChange = () => {
+      const userData = localStorage.getItem('user')
+      if (userData) {
+        setUser(JSON.parse(userData))
+      } else {
+        setUser(null)
+      }
+    }
+
+    // Subscribe to auth events
+    const unsubscribe = authEvents.subscribe(handleAuthChange)
+
+    // Listen for storage changes (when user logs in/out in another tab)
+    window.addEventListener('storage', handleStorageChange)
+
+    return () => {
+      unsubscribe()
+      window.removeEventListener('storage', handleStorageChange)
+    }
+  }, [])
+
+  const handleLogout = () => {
+    localStorage.removeItem('user')
+    localStorage.removeItem('userType')
+    localStorage.removeItem('token')
+    setUser(null)
+    setIsProfileOpen(false)
+
+    // Emit auth event to update all components
+    authEvents.emit({ user: null, userType: null })
+
+    navigate('/auth')
+  }
 
   const menuItems = [
     { name: 'Home', icon: '🏠', path: '/' },
@@ -39,20 +90,20 @@ function MobileHeader() {
             <button className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all">
               <Search size={20} className="text-white" />
             </button>
-            
+
             <button className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all relative">
               <Bell size={20} className="text-white" />
               <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
             </button>
-            
-            <button 
+
+            <button
               onClick={() => setIsProfileOpen(!isProfileOpen)}
               className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all"
             >
               <User size={20} className="text-white" />
             </button>
-            
-            <button 
+
+            <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all"
             >
@@ -83,7 +134,7 @@ function MobileHeader() {
               <div className="p-6">
                 <div className="flex items-center justify-between mb-8">
                   <h2 className="text-2xl font-bold text-white">Menu</h2>
-                  <button 
+                  <button
                     onClick={() => setIsMenuOpen(false)}
                     className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all"
                   >
@@ -113,8 +164,8 @@ function MobileHeader() {
                       <User size={24} className="text-white" />
                     </div>
                     <div>
-                      <p className="text-white font-medium">John Doe</p>
-                      <p className="text-white/60 text-sm">john@example.com</p>
+                      <p className="text-white font-medium">{user?.name || 'Guest'}</p>
+                      <p className="text-white/60 text-sm">{user?.email || 'Not logged in'}</p>
                     </div>
                   </div>
                 </div>
@@ -138,6 +189,7 @@ function MobileHeader() {
                 {profileItems.map((item, index) => (
                   <button
                     key={item.name}
+                    onClick={item.name === 'Logout' ? handleLogout : undefined}
                     className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-all text-white text-left"
                   >
                     <span className="text-lg">{item.icon}</span>
