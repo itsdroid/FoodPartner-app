@@ -18,6 +18,8 @@ const allowedOrigins = [
     process.env.FRONTEND_ORIGIN,
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    'https://foodpartneru.onrender.com/',
+    'https://frontend-foodpartner.onrender.com'
 ].filter(Boolean);
 
 app.use(cors({
