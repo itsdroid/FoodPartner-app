@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Plus, Edit, Trash2, Eye, Star, Clock, DollarSign, Upload, X, Video, Image, Save, Building2, Hash, MapPin } from 'lucide-react'
 import GlassCard from '../ui/GlassCard.jsx'
-import axios from 'axios'
+import api from '../utils/api'
 
 function PartnerDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -65,7 +65,7 @@ function PartnerDashboard() {
       console.log('Current token:', token)
 
       // Test partner auth specifically
-      const partnerResponse = await axios.get('http://localhost:3000/test-partner-auth', {
+      const partnerResponse = await api.get('/test-partner-auth', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -79,7 +79,7 @@ function PartnerDashboard() {
 
   const fetchFoodItems = async () => {
     try {
-      const response = await axios.get('http://localhost:3000/food/items')
+      const response = await api.get('/food/items')
       setFoodItems(response.data.foodItems || [])
     } catch (error) {
       console.error('Error fetching food items:', error)
@@ -128,7 +128,7 @@ function PartnerDashboard() {
   const fetchPartnerProfile = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await axios.get('http://localhost:3000/foodPartner/profile', {
+      const response = await api.get('/foodPartner/profile', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -142,7 +142,7 @@ function PartnerDashboard() {
   const fetchDashboardStats = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await axios.get('http://localhost:3000/analytics/dashboard', {
+      const response = await api.get('/analytics/dashboard', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -176,7 +176,7 @@ function PartnerDashboard() {
         formData.append('image', restaurantImage)
       }
 
-      const response = await axios.post('http://localhost:3000/foodPartner/restaurant', formData, {
+      const response = await api.post('/foodPartner/restaurant', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`
@@ -234,7 +234,7 @@ function PartnerDashboard() {
       }
 
       const token = localStorage.getItem('token')
-      const response = await axios.post('http://localhost:3000/food/', formData, {
+      const response = await api.post('/food/', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`
@@ -308,7 +308,7 @@ function PartnerDashboard() {
       }
 
       const token = localStorage.getItem('token')
-      const response = await axios.post('http://localhost:3000/food/reels', formData, {
+      const response = await api.post('/food/reels', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`
@@ -341,7 +341,7 @@ function PartnerDashboard() {
     if (window.confirm('Are you sure you want to delete this food item?')) {
       try {
         const token = localStorage.getItem('token')
-        await axios.delete(`http://localhost:3000/food/${foodId}`, {
+        await api.delete(`/food/${foodId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import GlassCard from '../ui/GlassCard.jsx'
-import axios from 'axios'
+import api from '../utils/api'
 
 function Restaurants() {
   const [restaurants, setRestaurants] = useState([])
@@ -10,7 +10,7 @@ function Restaurants() {
     const fetchRestaurants = async () => {
       setLoading(true)
       try {
-        const response = await axios.get('http://localhost:3000/restaurants')
+        const response = await api.get('/restaurants')
         setRestaurants(response.data.restaurants || [])
       } catch (error) {
         console.error('Error fetching restaurants:', error)

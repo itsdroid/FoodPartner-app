@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import GlassCard from '../ui/GlassCard.jsx'
 import { motion } from 'framer-motion'
 import { Mail, Lock, User, Phone, MapPin, Eye, EyeOff, ToggleLeft, ToggleRight, LogOut } from 'lucide-react'
-import axios from 'axios'
+import api from '../utils/api'
 import { useNavigate } from 'react-router-dom'
 import { authEvents } from '../utils/authEvents'
 
@@ -39,7 +39,7 @@ function Auth() {
 
     try {
       const endpoint = isPartner ? "foodPartner/login" : "user/login"
-      const response = await axios.post(`http://localhost:3000/${endpoint}`, {
+      const response = await api.post(`/${endpoint}`, {
         email: data.email,
         password: data.password
       })
@@ -84,7 +84,7 @@ function Auth() {
 
     try {
       const endpoint = isPartner ? "foodPartner/register" : "user/register"
-      const response = await axios.post(`http://localhost:3000/${endpoint}`, {
+      const response = await api.post(`/${endpoint}`, {
         name: data.name,
         email: data.email,
         password: data.password,

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import GlassCard from '../ui/GlassCard.jsx'
 import { motion } from 'framer-motion'
 import { Search, Filter, Star, MapPin, Clock } from 'lucide-react'
-import axios from 'axios'
+import api from '../utils/api'
 
 function Explore() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -25,7 +25,7 @@ function Explore() {
         params.append('category', selectedCategory)
       }
 
-      const response = await axios.get(`http://localhost:3000/food/explore?${params}`)
+      const response = await api.get(`/food/explore?${params}`)
       setFoodItems(response.data.foodItems || [])
     } catch (error) {
       console.error('Error fetching food items:', error)
@@ -40,7 +40,7 @@ function Explore() {
 
     setLoading(true)
     try {
-      const response = await axios.get(`http://localhost:3000/food/search?query=${encodeURIComponent(searchQuery)}`)
+      const response = await api.get(`/food/search?query=${encodeURIComponent(searchQuery)}`)
       setFoodItems(response.data.results || [])
     } catch (error) {
       console.error('Error searching food:', error)
@@ -159,7 +159,7 @@ function Explore() {
                           window.location.href = '/auth'
                           return
                         }
-                        await axios.post(`http://localhost:3000/user/cart`, { foodId: item._id || item.id, quantity: 1 }, {
+                        await api.post(`/user/cart`, { foodId: item._id || item.id, quantity: 1 }, {
                           headers: { 'Authorization': `Bearer ${token}` }
                         })
                         alert('Added to cart')

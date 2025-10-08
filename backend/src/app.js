@@ -13,11 +13,29 @@ const userInteractionRouter = require('./routes/userInteraction.routes');
 
 connectDB();
 
-// Add CORS configuration
+// Add CORS configuration for local and deployed frontends
+const allowedOrigins = [
+    process.env.FRONTEND_ORIGIN,
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+].filter(Boolean);
+
 app.use(cors({
-    origin: 'http://localhost:5173', // Your frontend URL (Vite default)
-    credentials: true
+    origin: function (origin, callback) {
+        // Allow mobile apps / curl with no origin, or explicitly allowed origins
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Type']
 }));
+
+// Handle preflight
+// Preflight is handled by the global CORS middleware above
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());

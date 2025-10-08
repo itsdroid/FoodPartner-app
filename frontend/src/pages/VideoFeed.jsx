@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Heart, MessageCircle, Share, Bookmark, Play, Pause, Volume2, VolumeX, X, Send } from 'lucide-react'
 import GlassCard from '../ui/GlassCard.jsx'
-import axios from 'axios'
+import api from '../utils/api'
 
 function VideoFeed() {
   const [currentVideo, setCurrentVideo] = useState(0)
@@ -25,10 +25,11 @@ function VideoFeed() {
   const fetchVideos = async () => {
     try {
       // Fetch reels from the new API endpoint
-      const response = await axios.get('http://localhost:3000/food/reels')
+      const response = await api.get('/food/reels')
       const data = response.data
       // Support both shapes: { reels: [...] } and [...]
       const reels = Array.isArray(data) ? data : (data.reels || data.videos || [])
+      console.log('Fetched reels:', reels)
       setVideos(reels)
     } catch (error) {
       console.error('Error fetching reels:', error)
@@ -48,7 +49,7 @@ function VideoFeed() {
         return
       }
 
-      const response = await axios.post(`http://localhost:3000/user/like/${videoId}`, {}, {
+      const response = await api.post(`/user/like/${videoId}`, {}, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -85,7 +86,7 @@ function VideoFeed() {
         return
       }
 
-      const response = await axios.post(`http://localhost:3000/user/save/${videoId}`, {}, {
+      const response = await api.post(`/user/save/${videoId}`, {}, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -116,7 +117,7 @@ function VideoFeed() {
           return
         }
 
-        const response = await axios.post(`http://localhost:3000/user/comment/${videoId}`, {
+        const response = await api.post(`/user/comment/${videoId}`, {
           text: newComment
         }, {
           headers: {
@@ -146,7 +147,7 @@ function VideoFeed() {
 
   const fetchComments = async (videoId) => {
     try {
-      const response = await axios.get(`http://localhost:3000/user/comments/${videoId}`)
+      const response = await api.get(`/user/comments/${videoId}`)
       setComments(prev => ({
         ...prev,
         [videoId]: response.data.comments || []
@@ -166,7 +167,7 @@ function VideoFeed() {
   const handleShare = async (videoId) => {
     try {
       // Increment share count on backend
-      await axios.post(`http://localhost:3000/user/share/${videoId}`)
+      await api.post(`/user/share/${videoId}`)
 
       // Update local share count
       setVideos(prev => prev.map(video =>
@@ -242,19 +243,29 @@ function VideoFeed() {
 
   // Ensure video updates correctly when switching items
   useEffect(() => {
-    if (!videoRef.current) return
+    if (!videoRef.current || !videos[currentVideo]) return
     try {
+      console.log('Switching to video:', videos[currentVideo].videoUrl)
       // Reset the media element source and playback based on isPlaying
       videoRef.current.muted = isMuted
+      videoRef.current.load() // Force reload the video
       const playIfNeeded = async () => {
         if (isPlaying) {
-          try { await videoRef.current.play() } catch { }
+          try {
+            await videoRef.current.play()
+            console.log('Video playing successfully')
+          } catch (err) {
+            console.log('Play failed:', err)
+          }
         } else {
           videoRef.current.pause()
         }
       }
-      playIfNeeded()
-    } catch { }
+      // Small delay to ensure video is loaded
+      setTimeout(playIfNeeded, 100)
+    } catch (err) {
+      console.log('Video switch error:', err)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentVideo])
 
@@ -307,12 +318,23 @@ function VideoFeed() {
                 muted={isMuted}
                 playsInline
                 loop
+                controls={false}
+                onLoadStart={() => console.log('Video load started:', videos[currentVideo].videoUrl)}
+                onLoadedData={() => console.log('Video data loaded:', videos[currentVideo].videoUrl)}
                 onLoadedMetadata={() => {
+                  console.log('Video metadata loaded:', videos[currentVideo].videoUrl)
                   try {
                     if (isPlaying && videoRef.current) {
-                      videoRef.current.play().catch(() => { })
+                      videoRef.current.play().catch((err) => console.log('Play error:', err))
                     }
-                  } catch { }
+                  } catch (err) { console.log('Metadata error:', err) }
+                }}
+                onError={(e) => console.error('Video error:', e, videos[currentVideo].videoUrl)}
+                onCanPlay={() => {
+                  console.log('Video can play:', videos[currentVideo].videoUrl)
+                  if (videoRef.current && isPlaying) {
+                    videoRef.current.play().catch(console.error)
+                  }
                 }}
               />
 
