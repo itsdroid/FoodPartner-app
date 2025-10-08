@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+/* Global theme tokens */
+:root {
+  --glass-bg: rgba(255,255,255,0.05);
+  --glass-border: rgba(255,255,255,0.10);
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+/* Custom scrollbar for modern look */
+*::-webkit-scrollbar { height: 10px; width: 10px; }
+*::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 999px; }
+*::-webkit-scrollbar-track { background: transparent; }
