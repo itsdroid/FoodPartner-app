@@ -9,7 +9,7 @@ async function connectDB() {
     })
     .catch((err) => {
          message: "error:" , err
-        console.log(message);
+        console.log(err);
     })
 }
 
